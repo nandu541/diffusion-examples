@@ -24,7 +24,7 @@
     PTDiffusionSession* _session;
 }
 
--(void)startWithURL:(NSURL*)url {
+-(void)start {
     NSLog(@"Connecting...");
 
     PTDiffusionMutableSessionConfiguration *const sessionConfiguration =
@@ -37,7 +37,7 @@
     sessionConfiguration.reconnectionStrategy = [ExponentialBackoffReconnectionStrategy new];
 
     // Start connecting asynchronously.
-    [PTDiffusionSession openWithURL:url
+    [PTDiffusionSession openWithURL:_url
                       configuration:sessionConfiguration
                   completionHandler:^(PTDiffusionSession *session, NSError *error)
     {

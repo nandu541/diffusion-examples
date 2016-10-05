@@ -27,10 +27,6 @@ namespace GettingStarted {
     /// </summary>
     class PublishingClient {
         static void Main( string[] args ) {
-            StartPublishing();
-        }
-
-        private static async void StartPublishing() {
             // Connect using a principal with 'modify_topic' and 'update_topic' permissions
             var session = Diffusion.Sessions.Principal( "principal" ).Password( "password" ).Open( "ws://host:80" );
 
@@ -39,32 +35,43 @@ namespace GettingStarted {
 
             var updateControl = session.GetTopicUpdateControlFeature();
 
-            var tcs = new TaskCompletionSource<string>();
+            var addCallback = new AddCallback();
 
             // Create a single-value topic 'foo/counter'
-            topicControl.AddTopic( "foo/counter", TopicType.SINGLE_VALUE, new AddCallback( tcs ) );
+            topicControl.AddTopic( "foo/counter", TopicType.SINGLE_VALUE, addCallback );
 
             // Wait for the OnTopicAdded callback, or a failure
-            try {
-                await tcs.Task;
-            } catch ( Exception ) {
-                // Handle the failure
+            if ( !addCallback.Wait( TimeSpan.FromSeconds( 5 ) ) ) {
+                Console.WriteLine( "Callback not received within timeout." );
+                return;
+            } else if ( addCallback.Error != null ) {
+                Console.WriteLine( "Error : {0}", addCallback.Error.ToString() );
+                return;
             }
 
-            // Update the topic
+            var updateCallback = new UpdateCallback();
+            // Update the topic for 16 minutes
             for ( var i = 0; i < 1000; ++i ) {
                 // Use the non-exclusive updater to update the topic without locking it
-                updateControl.Updater.Update( "foo/counter", Convert.ToString( i ), new UpdateCallback() );
+                updateControl.Updater.Update( "foo/counter", i.ToString(), updateCallback );
 
                 Thread.Sleep( 1000 );
             }
         }
 
         private class AddCallback : ITopicControlAddCallback {
-            private readonly TaskCompletionSource<string> theCompletionSource;
+            private readonly AutoResetEvent resetEvent = new AutoResetEvent( false );
 
-            public AddCallback( TaskCompletionSource<string> completionSource ) {
-                theCompletionSource = completionSource;
+            /// <summary>
+            /// Any error from this AddCallback will be stored here.
+            /// </summary>
+            public Exception Error {
+                get;
+                private set;
+            }
+
+            public AddCallback() {
+                Error = null;
             }
 
             /// <summary>
@@ -72,25 +79,30 @@ namespace GettingStarted {
             /// session being closed. No further calls will be made for the context.
             /// </summary>
             public void OnDiscard() {
-                theCompletionSource.SetException( new Exception( "This context was closed prematurely." ) );
+                Error = new Exception( "This context was closed prematurely." );
+                resetEvent.Set();
             }
 
             /// <summary>
-            /// Topic has been added.
+            /// This is called to notify that the topic has been added.
             /// </summary>
             /// <param name="topicPath">The full path of the topic that was added.</param>
             public void OnTopicAdded( string topicPath ) {
-                theCompletionSource.SetResult( topicPath );
+                resetEvent.Set();
             }
 
             /// <summary>
-            /// An attempt to add a topic has failed.
+            /// This is called to notify that an attempt to add a topic has failed.
             /// </summary>
             /// <param name="topicPath">The topic path as supplied to the add request.</param>
             /// <param name="reason">The reason for failure.</param>
             public void OnTopicAddFailed( string topicPath, TopicAddFailReason reason ) {
-                theCompletionSource.SetException(
-                    new Exception( string.Format( "Failed to add topic {0} because of '{1}", topicPath, reason ) ) );
+                Error = new Exception( string.Format( "Failed to add topic {0} : '{1}", topicPath, reason ) );
+                resetEvent.Set();
+            }
+
+            public bool Wait( TimeSpan timeout ) {
+                return resetEvent.WaitOne( timeout );
             }
         }
 

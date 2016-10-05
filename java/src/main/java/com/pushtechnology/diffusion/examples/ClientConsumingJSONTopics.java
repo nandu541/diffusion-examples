@@ -47,7 +47,6 @@ import com.pushtechnology.diffusion.datatype.json.JSON;
 public final class ClientConsumingJSONTopics {
 
     private static final String ROOT_TOPIC = "FX";
-    private static final String TOPIC_SELECTOR = String.format("?%s/", ROOT_TOPIC);
 
     private final RatesListener listener;
 
@@ -69,22 +68,17 @@ public final class ClientConsumingJSONTopics {
         // Use the Topics feature to add a topic stream and subscribe to all
         // topics under the root
         final Topics topics = session.feature(Topics.class);
-        topics.addStream(TOPIC_SELECTOR, JSON.class, new RatesStream());
-        topics.subscribe(TOPIC_SELECTOR, new Topics.CompletionCallback.Default());
+        final String topicSelector = String.format("?%s/", ROOT_TOPIC);
+        topics.addStream(topicSelector, JSON.class, new RatesStream());
+        topics
+            .subscribe(topicSelector, new Topics.CompletionCallback.Default());
     }
 
     /**
      * Close session.
      */
     public void close() {
-        session.feature(Topics.class).unsubscribe(
-            TOPIC_SELECTOR,
-            new Topics.CompletionCallback.Default() {
-                @Override
-                public void onComplete() {
-                    session.close();
-                }
-            });
+        session.close();
     }
 
     private static String pathToCurrency(String path) {

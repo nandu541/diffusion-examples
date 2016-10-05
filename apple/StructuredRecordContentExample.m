@@ -58,9 +58,7 @@ static RecordDescriber _ExchangeRatesRecordDescriber = ^ NSString* (PTDiffusionR
     return [s copy];
 };
 
--(void)startWithURL:(NSURL*)url
- sessionConfiguration:(PTDiffusionSessionConfiguration*)sessionConfiguration {
-
+-(void)start {
     PTDiffusionRecordContentSchema * const exchangeRatesSchema = [[PTDiffusionRecordContentSchema alloc] initWithRecordMetadata:@[
         [[PTDiffusionRecordMetadata alloc] initWithName:_FromKey
                                           fieldMetadata:@[
@@ -78,8 +76,8 @@ static RecordDescriber _ExchangeRatesRecordDescriber = ^ NSString* (PTDiffusionR
     _describers = [NSMutableDictionary new];
 
     NSLog(@"Connecting...");
-    [PTDiffusionSession openWithURL:url
-                      configuration:sessionConfiguration
+    [PTDiffusionSession openWithURL:_url
+                      configuration:_sessionConfiguration
                   completionHandler:^(PTDiffusionSession * const session, NSError * const error)
      {
          if (!session) {
@@ -94,9 +92,9 @@ static RecordDescriber _ExchangeRatesRecordDescriber = ^ NSString* (PTDiffusionR
          _session = session;
 
          // Register self as the handler for topic updates.
-         NSString *topicPath = [NSString stringWithFormat:@"*%@/Exchange Rates//", _RootTopicPath];
-         [self registerStream:[session.topics addTopicStreamWithSelectorExpression:topicPath
-                                                                          delegate:self]
+         [self registerStream:[session.topics addTopicStreamWithSelector:
+             [PTDiffusionTopicSelector topicSelectorWithExpression:[NSString stringWithFormat:@"*%@/Exchange Rates//", _RootTopicPath]]
+                                                                delegate:self]
                        schema:exchangeRatesSchema
                     describer:_ExchangeRatesRecordDescriber];
 

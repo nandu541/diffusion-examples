@@ -24,12 +24,10 @@
     PTDiffusionSession* _session;
 }
 
--(void)startWithURL:(NSURL*)url
- sessionConfiguration:(PTDiffusionSessionConfiguration*)sessionConfiguration {
-
+-(void)start {
     NSLog(@"Connecting...");
-    [PTDiffusionSession openWithURL:url
-                      configuration:sessionConfiguration
+    [PTDiffusionSession openWithURL:_url
+                      configuration:_sessionConfiguration
                   completionHandler:^(PTDiffusionSession * const session, NSError * const error)
      {
          if (!session) {
